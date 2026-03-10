@@ -1,3 +1,4 @@
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 
@@ -153,7 +154,11 @@ def restore_audio() -> ErrorCode:
 
 
 def process_temp_frame(temp_frame_path : str, frame_number : int) -> bool:
-	reference_vision_frame = read_static_video_frame(state_manager.get_item('target_path'), state_manager.get_item('reference_frame_number'))
+	reference_face_path = state_manager.get_item('reference_face_path')
+	if reference_face_path and os.path.isfile(reference_face_path):
+		reference_vision_frame = read_static_image(reference_face_path)
+	else:
+		reference_vision_frame = read_static_video_frame(state_manager.get_item('target_path'), state_manager.get_item('reference_frame_number'))
 	source_vision_frames = read_static_images(state_manager.get_item('source_paths'))
 	source_audio_path = get_first(filter_audio_paths(state_manager.get_item('source_paths')))
 	temp_video_fps = restrict_video_fps(state_manager.get_item('target_path'), state_manager.get_item('output_video_fps'))
