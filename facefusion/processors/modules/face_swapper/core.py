@@ -769,7 +769,7 @@ def process_frame(inputs : FaceSwapperInputs) -> ProcessorOutputs:
 	reference_face_distance = state_manager.get_item('reference_face_distance')
 
 	# multi-face mode: pair each source image with its corresponding reference image
-	if reference_face_paths and len(reference_face_paths) > 1 and source_vision_frames and len(source_vision_frames) >= len(reference_face_paths):
+	if reference_face_paths and len(reference_face_paths) >= 1 and source_vision_frames and len(source_vision_frames) >= len(reference_face_paths):
 		target_faces = get_many_faces([ target_vision_frame ])
 		already_swapped = set()
 
@@ -789,7 +789,7 @@ def process_frame(inputs : FaceSwapperInputs) -> ProcessorOutputs:
 			source_frame = source_vision_frames[index]
 			temp_source_faces = get_many_faces([ source_frame ])
 			temp_source_faces = sort_faces_by_order(temp_source_faces, 'large-small')
-			source_face = get_average_face([ get_first(temp_source_faces) ]) if temp_source_faces else None
+			source_face = get_first(temp_source_faces) if temp_source_faces else None
 			if not source_face:
 				continue
 
