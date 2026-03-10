@@ -130,7 +130,8 @@ def create_face_selector_program() -> ArgumentParser:
 	group_face_selector.add_argument('--reference-face-distance', help = translator.get('help.reference_face_distance'), type = float, default = config.get_float_value('face_selector', 'reference_face_distance', '0.3'), choices = facefusion.choices.reference_face_distance_range, metavar = create_float_metavar(facefusion.choices.reference_face_distance_range))
 	group_face_selector.add_argument('--reference-frame-number', help = translator.get('help.reference_frame_number'), type = int, default = config.get_int_value('face_selector', 'reference_frame_number', '0'))
 	group_face_selector.add_argument('--reference-face-path', help = 'use an external image as the reference face instead of extracting from the target video frame', default = config.get_str_value('face_selector', 'reference_face_path'))
-	job_store.register_step_keys([ 'face_selector_mode', 'face_selector_order', 'face_selector_gender', 'face_selector_race', 'face_selector_age_start', 'face_selector_age_end', 'reference_face_position', 'reference_face_distance', 'reference_frame_number', 'reference_face_path' ])
+	group_face_selector.add_argument('--reference-face-paths', help = 'use multiple external images as reference faces for multi-face replacement, paired with source paths in order', default = config.get_str_list('face_selector', 'reference_face_paths'), nargs = '+', metavar = 'REFERENCE_FACE_PATHS')
+	job_store.register_step_keys([ 'face_selector_mode', 'face_selector_order', 'face_selector_gender', 'face_selector_race', 'face_selector_age_start', 'face_selector_age_end', 'reference_face_position', 'reference_face_distance', 'reference_frame_number', 'reference_face_path', 'reference_face_paths' ])
 	return program
 
 

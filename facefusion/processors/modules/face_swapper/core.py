@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple
 
 import cv2
 import numpy
+import os
 
 import facefusion.choices
 import facefusion.jobs.job_manager
@@ -15,7 +16,7 @@ from facefusion.execution import has_execution_provider
 from facefusion.face_analyser import get_average_face, get_many_faces, get_one_face, scale_face
 from facefusion.face_helper import paste_back, warp_face_by_face_landmark_5
 from facefusion.face_masker import create_area_mask, create_box_mask, create_occlusion_mask, create_region_mask
-from facefusion.face_selector import select_faces, sort_faces_by_order
+from facefusion.face_selector import find_match_faces, select_faces, sort_faces_by_order
 from facefusion.filesystem import filter_image_paths, has_image, in_directory, is_image, is_video, resolve_relative_path, same_file_extension
 from facefusion.model_helper import get_static_model_initializer
 from facefusion.processors.modules.face_swapper import choices as face_swapper_choices
@@ -763,6 +764,46 @@ def process_frame(inputs : FaceSwapperInputs) -> ProcessorOutputs:
 	target_vision_frame = inputs.get('target_vision_frame')
 	temp_vision_frame = inputs.get('temp_vision_frame')
 	temp_vision_mask = inputs.get('temp_vision_mask')
+
+	reference_face_paths = state_manager.get_item('reference_face_paths')
+	reference_face_distance = state_manager.get_item('reference_face_distance')
+
+	# multi-face mode: pair each source image with its corresponding reference image
+	if reference_face_paths and len(reference_face_paths) > 1 and source_vision_frames and len(source_vision_frames) >= len(reference_face_paths):
+		target_faces = get_many_faces([ target_vision_frame ])
+		already_swapped = set()
+
+		for index, ref_path in enumerate(reference_face_paths):
+			if not os.path.isfile(ref_path):
+				continue
+
+			ref_vision_frame = read_static_image(ref_path)
+			ref_faces = get_many_faces([ ref_vision_frame ])
+			ref_faces = sort_faces_by_order(ref_faces, state_manager.get_item('face_selector_order') or 'large-small')
+			ref_face = get_one_face(ref_faces, 0)
+			if not ref_face:
+				continue
+
+			matched_faces = find_match_faces([ ref_face ], target_faces, reference_face_distance)
+
+			source_frame = source_vision_frames[index]
+			temp_source_faces = get_many_faces([ source_frame ])
+			temp_source_faces = sort_faces_by_order(temp_source_faces, 'large-small')
+			source_face = get_average_face([ get_first(temp_source_faces) ]) if temp_source_faces else None
+			if not source_face:
+				continue
+
+			for target_face in matched_faces:
+				face_id = tuple(target_face.bounding_box.tolist())
+				if face_id in already_swapped:
+					continue
+				already_swapped.add(face_id)
+				target_face = scale_face(target_face, target_vision_frame, temp_vision_frame)
+				temp_vision_frame = swap_face(source_face, target_face, temp_vision_frame)
+
+		return temp_vision_frame, temp_vision_mask
+
+	# default single-source mode
 	source_face = extract_source_face(source_vision_frames)
 	target_faces = select_faces(reference_vision_frame, target_vision_frame)
 
