@@ -48,7 +48,7 @@ def render() -> None:
 		'columns': 7,
 		'allow_preview': False,
 		'elem_classes': 'box-face-selector',
-		'visible': 'reference' in state_manager.get_item('face_selector_mode')
+		'visible': state_manager.get_item('face_selector_mode') == 'reference'
 	}
 	if is_image(state_manager.get_item('target_path')):
 		target_vision_frame = read_static_image(state_manager.get_item('target_path'))
@@ -89,13 +89,14 @@ def render() -> None:
 				value = (face_selector_age_start, face_selector_age_end),
 				step = calculate_int_step(facefusion.choices.face_selector_age_range)
 			)
+	face_selector_mode = state_manager.get_item('face_selector_mode')
 	REFERENCE_FACE_DISTANCE_SLIDER = gradio.Slider(
 		label = translator.get('uis.reference_face_distance_slider'),
 		value = state_manager.get_item('reference_face_distance'),
 		step = calculate_float_step(facefusion.choices.reference_face_distance_range),
 		minimum = facefusion.choices.reference_face_distance_range[0],
 		maximum = facefusion.choices.reference_face_distance_range[-1],
-		visible = 'reference' in state_manager.get_item('face_selector_mode')
+		visible = face_selector_mode in ('reference', 'multi_reference')
 	)
 	reference_face_paths = state_manager.get_item('reference_face_paths')
 	REFERENCE_FACE_PATHS_FILE = gradio.File(
@@ -103,14 +104,14 @@ def render() -> None:
 		file_count = 'multiple',
 		file_types = [ 'image' ],
 		value = reference_face_paths if reference_face_paths else None,
-		visible = 'reference' in state_manager.get_item('face_selector_mode')
+		visible = face_selector_mode == 'multi_reference'
 	)
-	is_multi_face = bool(reference_face_paths) and 'reference' in state_manager.get_item('face_selector_mode')
+	is_multi_face = bool(reference_face_paths) and face_selector_mode == 'multi_reference'
 	MULTI_FACE_PAIRS_GALLERY = gradio.Gallery(
-		label = 'Multi-Face Pairs Preview (Reference → Source)',
+		label = 'Multi-Face Pairs Preview (Reference → Matched → Source)',
 		value = extract_multi_face_pairs_preview() if is_multi_face else None,
 		object_fit = 'cover',
-		columns = 4,
+		columns = 3,
 		allow_preview = True,
 		visible = is_multi_face
 	)
@@ -174,10 +175,12 @@ def update_face_selector_mode(face_selector_mode : FaceSelectorMode) -> Tuple[gr
 	if face_selector_mode == 'one':
 		return gradio.Gallery(visible = False), gradio.Slider(visible = False), gradio.File(visible = False), gradio.Gallery(visible = False)
 	if face_selector_mode == 'reference':
+		return gradio.Gallery(visible = True), gradio.Slider(visible = True), gradio.File(visible = False), gradio.Gallery(visible = False)
+	if face_selector_mode == 'multi_reference':
 		reference_face_paths = state_manager.get_item('reference_face_paths')
 		is_multi = bool(reference_face_paths)
 		pairs_value = extract_multi_face_pairs_preview() if is_multi else None
-		return gradio.Gallery(visible = True), gradio.Slider(visible = True), gradio.File(visible = True), gradio.Gallery(value = pairs_value, visible = is_multi)
+		return gradio.Gallery(visible = False), gradio.Slider(visible = True), gradio.File(visible = True), gradio.Gallery(value = pairs_value, visible = is_multi)
 
 
 def update_face_selector_order(face_analyser_order : FaceSelectorOrder) -> gradio.Gallery:
@@ -252,11 +255,14 @@ def update_reference_position_gallery(frame_number : int = 0) -> gradio.Gallery:
 
 
 def update_reference_position_gallery_and_pairs(frame_number : int = 0) -> Tuple[gradio.Gallery, gradio.Gallery]:
+	face_selector_mode = state_manager.get_item('face_selector_mode')
+	if face_selector_mode == 'multi_reference':
+		reference_face_paths = state_manager.get_item('reference_face_paths')
+		if reference_face_paths:
+			pairs = extract_multi_face_pairs_preview(frame_number)
+			return gradio.Gallery(visible = False), gradio.Gallery(value = pairs, visible = True)
+		return gradio.Gallery(visible = False), gradio.Gallery(value = None, visible = False)
 	position_gallery = update_reference_position_gallery(frame_number)
-	reference_face_paths = state_manager.get_item('reference_face_paths')
-	if reference_face_paths:
-		pairs = extract_multi_face_pairs_preview(frame_number)
-		return position_gallery, gradio.Gallery(value = pairs, visible = True)
 	return position_gallery, gradio.Gallery(value = None, visible = False)
 
 
