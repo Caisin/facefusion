@@ -24,6 +24,7 @@ FACE_SELECTOR_RACE_DROPDOWN : Optional[gradio.Dropdown] = None
 FACE_SELECTOR_AGE_RANGE_SLIDER : Optional[RangeSlider] = None
 REFERENCE_FACE_POSITION_GALLERY : Optional[gradio.Gallery] = None
 REFERENCE_FACE_DISTANCE_SLIDER : Optional[gradio.Slider] = None
+REFERENCE_FACE_PATHS_FILE : Optional[gradio.File] = None
 
 
 def render() -> None:
@@ -34,6 +35,7 @@ def render() -> None:
 	global FACE_SELECTOR_AGE_RANGE_SLIDER
 	global REFERENCE_FACE_POSITION_GALLERY
 	global REFERENCE_FACE_DISTANCE_SLIDER
+	global REFERENCE_FACE_PATHS_FILE
 
 	reference_face_gallery_options : ComponentOptions =\
 	{
@@ -91,6 +93,14 @@ def render() -> None:
 		maximum = facefusion.choices.reference_face_distance_range[-1],
 		visible = 'reference' in state_manager.get_item('face_selector_mode')
 	)
+	reference_face_paths = state_manager.get_item('reference_face_paths')
+	REFERENCE_FACE_PATHS_FILE = gradio.File(
+		label = 'Multi-Face Reference Images (one per target face, paired with source images in order)',
+		file_count = 'multiple',
+		file_types = [ 'image' ],
+		value = reference_face_paths if reference_face_paths else None,
+		visible = 'reference' in state_manager.get_item('face_selector_mode')
+	)
 	register_ui_component('face_selector_mode_dropdown', FACE_SELECTOR_MODE_DROPDOWN)
 	register_ui_component('face_selector_order_dropdown', FACE_SELECTOR_ORDER_DROPDOWN)
 	register_ui_component('face_selector_gender_dropdown', FACE_SELECTOR_GENDER_DROPDOWN)
@@ -98,15 +108,17 @@ def render() -> None:
 	register_ui_component('face_selector_age_range_slider', FACE_SELECTOR_AGE_RANGE_SLIDER)
 	register_ui_component('reference_face_position_gallery', REFERENCE_FACE_POSITION_GALLERY)
 	register_ui_component('reference_face_distance_slider', REFERENCE_FACE_DISTANCE_SLIDER)
+	register_ui_component('reference_face_paths_file', REFERENCE_FACE_PATHS_FILE)
 
 
 def listen() -> None:
-	FACE_SELECTOR_MODE_DROPDOWN.change(update_face_selector_mode, inputs = FACE_SELECTOR_MODE_DROPDOWN, outputs = [ REFERENCE_FACE_POSITION_GALLERY, REFERENCE_FACE_DISTANCE_SLIDER ])
+	FACE_SELECTOR_MODE_DROPDOWN.change(update_face_selector_mode, inputs = FACE_SELECTOR_MODE_DROPDOWN, outputs = [ REFERENCE_FACE_POSITION_GALLERY, REFERENCE_FACE_DISTANCE_SLIDER, REFERENCE_FACE_PATHS_FILE ])
 	FACE_SELECTOR_ORDER_DROPDOWN.change(update_face_selector_order, inputs = FACE_SELECTOR_ORDER_DROPDOWN, outputs = REFERENCE_FACE_POSITION_GALLERY)
 	FACE_SELECTOR_GENDER_DROPDOWN.change(update_face_selector_gender, inputs = FACE_SELECTOR_GENDER_DROPDOWN, outputs = REFERENCE_FACE_POSITION_GALLERY)
 	FACE_SELECTOR_RACE_DROPDOWN.change(update_face_selector_race, inputs = FACE_SELECTOR_RACE_DROPDOWN, outputs = REFERENCE_FACE_POSITION_GALLERY)
 	FACE_SELECTOR_AGE_RANGE_SLIDER.release(update_face_selector_age_range, inputs = FACE_SELECTOR_AGE_RANGE_SLIDER, outputs = REFERENCE_FACE_POSITION_GALLERY)
 	REFERENCE_FACE_DISTANCE_SLIDER.release(update_reference_face_distance, inputs = REFERENCE_FACE_DISTANCE_SLIDER)
+	REFERENCE_FACE_PATHS_FILE.change(update_reference_face_paths, inputs = REFERENCE_FACE_PATHS_FILE)
 
 	preview_frame_slider = get_ui_component('preview_frame_slider')
 	if preview_frame_slider:
@@ -141,14 +153,14 @@ def listen() -> None:
 			getattr(preview_frame_slider, method)(update_reference_position_gallery, inputs = preview_frame_slider, outputs = REFERENCE_FACE_POSITION_GALLERY, show_progress = 'hidden')
 
 
-def update_face_selector_mode(face_selector_mode : FaceSelectorMode) -> Tuple[gradio.Gallery, gradio.Slider]:
+def update_face_selector_mode(face_selector_mode : FaceSelectorMode) -> Tuple[gradio.Gallery, gradio.Slider, gradio.File]:
 	state_manager.set_item('face_selector_mode', face_selector_mode)
 	if face_selector_mode == 'many':
-		return gradio.Gallery(visible = False), gradio.Slider(visible = False)
+		return gradio.Gallery(visible = False), gradio.Slider(visible = False), gradio.File(visible = False)
 	if face_selector_mode == 'one':
-		return gradio.Gallery(visible = False), gradio.Slider(visible = False)
+		return gradio.Gallery(visible = False), gradio.Slider(visible = False), gradio.File(visible = False)
 	if face_selector_mode == 'reference':
-		return gradio.Gallery(visible = True), gradio.Slider(visible = True)
+		return gradio.Gallery(visible = True), gradio.Slider(visible = True), gradio.File(visible = True)
 
 
 def update_face_selector_order(face_analyser_order : FaceSelectorOrder) -> gradio.Gallery:
@@ -183,6 +195,14 @@ def clear_reference_face_position() -> None:
 
 def update_reference_face_distance(reference_face_distance : float) -> None:
 	state_manager.set_item('reference_face_distance', reference_face_distance)
+
+
+def update_reference_face_paths(files : List) -> None:
+	if files:
+		file_names = [ file.name for file in files ]
+		state_manager.set_item('reference_face_paths', file_names)
+	else:
+		state_manager.set_item('reference_face_paths', None)
 
 
 def update_reference_frame_number(reference_frame_number : int = 0) -> None:
